@@ -89,6 +89,47 @@ def npp(processes, higher_number_is_higher):
 
     return processes, gantt_chart
 
+def pp(processes, higher_number_is_higher):
+    n = len(processes)
+    time = 0
+    completed = 0
+    gantt_chart = []
+    remaining_bt = [p['burst_time'] for p in processes]
+    is_completed = [False] * n
+
+    for p in processes:
+        p['start_time'] = None
+
+    while completed < n:
+        ready_queue = [i for i in range(n) if processes[i]['arrival_time'] <= time and not is_completed[i]]
+        if ready_queue:
+            if higher_number_is_higher:
+                current = max(ready_queue, key=lambda i: processes[i]['priority'])
+            else:
+                current = min(ready_queue, key=lambda i: processes[i]['priority'])
+
+            if processes[current]['start_time'] is None:
+                processes[current]['start_time'] = time
+
+            remaining_bt[current] -= 1
+
+            if not gantt_chart or gantt_chart[-1][0] != processes[current]['pid']:
+                gantt_chart.append((processes[current]['pid'], time, time + 1))
+            else:
+                gantt_chart[-1] = (gantt_chart[-1][0], gantt_chart[-1][1], time + 1)
+
+            if remaining_bt[current] == 0:
+                is_completed[current] = True
+                completed += 1
+                processes[current]['completion_time'] = time + 1
+                processes[current]['turnaround_time'] = processes[current]['completion_time'] - processes[current]['arrival_time']
+                processes[current]['waiting_time'] = processes[current]['turnaround_time'] - processes[current]['burst_time']
+            time += 1
+        else:
+            time += 1
+
+    return processes, gantt_chart
+
 # ---------------- GUI Functions ---------------- #
 def generate_table():
     try:
@@ -102,9 +143,9 @@ def generate_table():
     for widget in frame_table_inputs.winfo_children():
         widget.destroy()
 
-    is_npp = algo_var.get() == "NPP"
+    is_priority = algo_var.get() in ["NPP", "PP"]
     headers = ["PID", "Arrival Time", "Burst Time"]
-    if is_npp:
+    if is_priority:
         headers.append("Priority")
 
     for j, header in enumerate(headers):
@@ -124,7 +165,7 @@ def generate_table():
         bt_entry.grid(row=i+1, column=2)
         row.append(bt_entry)
 
-        if is_npp:
+        if is_priority:
             pr_entry = tk.Entry(frame_table_inputs, width=15, borderwidth=1, relief="solid")
             pr_entry.grid(row=i+1, column=3)
             row.append(pr_entry)
@@ -140,7 +181,7 @@ def run_scheduler():
         try:
             at = int(row[0].get())
             bt = int(row[1].get())
-            pr = int(row[2].get()) if algo == "NPP" and len(row) > 2 else 0
+            pr = int(row[2].get()) if algo in ["NPP", "PP"] and len(row) > 2 else 0
             processes.append({'pid': f"P{i+1}", 'arrival_time': at, 'burst_time': bt, 'priority': pr})
         except ValueError:
             messagebox.showerror("Input Error", f"Invalid input in row {i+1}")
@@ -152,6 +193,8 @@ def run_scheduler():
         result, gantt = sjf(processes)
     elif algo == "NPP":
         result, gantt = npp(processes, high_is_high)
+    elif algo == "PP":
+        result, gantt = pp(processes, high_is_high)
     else:
         messagebox.showerror("Error", "Unknown algorithm selected.")
         return
@@ -192,20 +235,18 @@ def draw_gantt(gantt):
     canvas.create_text(x, 75, text=str(gantt[-1][2]), anchor=tk.NW)
 
 def on_algo_change(event=None):
-    if algo_var.get() == "NPP":
+    if algo_var.get() in ["NPP", "PP"]:
         label_prio_type.pack()
         priority_mode_dropdown.pack()
     else:
         label_prio_type.pack_forget()
         priority_mode_dropdown.pack_forget()
 
-    # Only regenerate table if a valid number was already entered
     try:
         if int(entry_count.get()) > 0:
             generate_table()
     except ValueError:
-        pass  # do nothing if it's empty or invalid
-
+        pass
 
 # ---------------- Tkinter UI ---------------- #
 root = tk.Tk()
@@ -225,7 +266,7 @@ tk.Button(frame_top, text="Generate Table", command=generate_table).pack(side=tk
 # Algorithm selection
 algo_var = tk.StringVar(value="FCFS")
 tk.Label(root, text="Select Algorithm:").pack()
-algo_dropdown = ttk.Combobox(root, textvariable=algo_var, values=["FCFS", "SJF", "NPP"], state="readonly")
+algo_dropdown = ttk.Combobox(root, textvariable=algo_var, values=["FCFS", "SJF", "NPP", "PP"], state="readonly")
 algo_dropdown.pack()
 algo_dropdown.bind("<<ComboboxSelected>>", on_algo_change)
 
