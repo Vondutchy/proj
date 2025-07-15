@@ -153,11 +153,13 @@ def rr(processes, q=2):
     i = 0  # track process arrival
 
     while i < n or ready_queue:
+        # enqueue processes which arrived
         while i < n and processes[i]['arrival_time'] <= time:
             ready_queue.append(processes[i]['pid'])
             visited.add(processes[i]['pid'])
             i += 1
 
+        # handle idle
         if not ready_queue:
             next_arrival = processes[i]['arrival_time']
             if not gantt_chart or gantt_chart[-1][0] != "Idle":
@@ -167,6 +169,7 @@ def rr(processes, q=2):
             time = next_arrival
             continue
 
+        # process next in queue
         pid = ready_queue.popleft()
         exec_time = min(q, remaining_bt[pid])
         start = time
@@ -175,13 +178,14 @@ def rr(processes, q=2):
         gantt_chart.append((pid, start, finish))
         remaining_bt[pid] -= exec_time
 
+        # enqueue processes which arrived during execution
         while i < n and processes[i]['arrival_time'] <= time:
             if processes[i]['pid'] not in visited:
                 ready_queue.append(processes[i]['pid'])
                 visited.add(processes[i]['pid'])
             i += 1
 
-        if remaining_bt[pid] > 0:
+        if remaining_bt[pid] > 0:  # add back to queue
             ready_queue.append(pid)
         else:
             completion[pid] = finish
