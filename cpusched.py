@@ -130,6 +130,55 @@ def pp(processes, higher_number_is_higher):
 
     return processes, gantt_chart
 
+def sjf_preemptive(processes):
+    n = len(processes)
+    processes = sorted(processes, key=lambda x: x['arrival_time'])  
+
+    remaining_bt = {p['pid']: p['burst_time'] for p in processes}
+    arrival_dict = {p['pid']: p['arrival_time'] for p in processes}
+    process_info = {p['pid']: p for p in processes}
+
+    complete = 0
+    time = 0
+    shortest = None
+    gantt_chart = []
+    current_pid = None
+    start_time = {}
+
+    while complete < n:
+        ready_queue = [pid for pid in remaining_bt if arrival_dict[pid] <= time and remaining_bt[pid] > 0]
+        if ready_queue:
+            shortest = min(ready_queue, key=lambda pid: remaining_bt[pid])
+
+            if current_pid != shortest:
+                if current_pid is not None and gantt_chart and gantt_chart[-1][0] == current_pid:
+                    gantt_chart[-1] = (current_pid, gantt_chart[-1][1], time)
+                gantt_chart.append((shortest, time, None)) 
+                if shortest not in start_time:
+                    start_time[shortest] = time
+                current_pid = shortest
+
+            remaining_bt[shortest] -= 1
+
+            if remaining_bt[shortest] == 0:
+                complete += 1
+                process_info[shortest]['completion_time'] = time + 1
+                process_info[shortest]['turnaround_time'] = process_info[shortest]['completion_time'] - arrival_dict[shortest]
+                process_info[shortest]['waiting_time'] = process_info[shortest]['turnaround_time'] - process_info[shortest]['burst_time']
+        else:
+            current_pid = None 
+        time += 1
+
+    for i in range(len(gantt_chart)):
+        pid, start, end = gantt_chart[i]
+        if end is None:
+            gantt_chart[i] = (pid, start, time)
+
+    for pid in process_info:
+        process_info[pid]['start_time'] = start_time[pid]
+
+    return list(process_info.values()), gantt_chart
+
 # ---------------- GUI Functions ---------------- #
 def generate_table():
     try:
@@ -195,6 +244,8 @@ def run_scheduler():
         result, gantt = npp(processes, high_is_high)
     elif algo == "PP":
         result, gantt = pp(processes, high_is_high)
+    elif algo == "SRTF":
+        result, gantt = sjf_preemptive(processes)
     else:
         messagebox.showerror("Error", "Unknown algorithm selected.")
         return
@@ -266,7 +317,7 @@ tk.Button(frame_top, text="Generate Table", command=generate_table).pack(side=tk
 # Algorithm selection
 algo_var = tk.StringVar(value="FCFS")
 tk.Label(root, text="Select Algorithm:").pack()
-algo_dropdown = ttk.Combobox(root, textvariable=algo_var, values=["FCFS", "SJF", "NPP", "PP"], state="readonly")
+algo_dropdown = ttk.Combobox(root, textvariable=algo_var, values=["FCFS", "SJF", "NPP", "PP","SRTF"], state="readonly")
 algo_dropdown.pack()
 algo_dropdown.bind("<<ComboboxSelected>>", on_algo_change)
 
