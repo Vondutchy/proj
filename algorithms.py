@@ -1,12 +1,12 @@
 from collections import deque
 
-
 def fcfs(processes):
     processes.sort(key=lambda x: x['arrival_time'])
     time = 0
     gantt_chart = []
     for process in processes:
         if time < process['arrival_time']:
+            gantt_chart.append(("Idle", time, process['arrival_time']))
             time = process['arrival_time']
         start = time
         finish = time + process['burst_time']
@@ -48,6 +48,10 @@ def sjf(processes):
             completed += 1
             gantt_chart.append((current['pid'], start, finish))
         else:
+            if not gantt_chart or gantt_chart[-1][0] != "Idle":
+                gantt_chart.append(("Idle", time, time + 1))
+            else:
+                gantt_chart[-1] = ("Idle", gantt_chart[-1][1], time + 1)
             time += 1
 
     return processes, gantt_chart
@@ -84,6 +88,10 @@ def npp(processes, higher_number_is_higher):
             completed += 1
             gantt_chart.append((current['pid'], start, finish))
         else:
+            if not gantt_chart or gantt_chart[-1][0] != "Idle":
+                gantt_chart.append(("Idle", time, time + 1))
+            else:
+                gantt_chart[-1] = ("Idle", gantt_chart[-1][1], time + 1)
             time += 1
 
     return processes, gantt_chart
@@ -125,10 +133,13 @@ def pp(processes, higher_number_is_higher):
                 processes[current]['waiting_time'] = processes[current]['turnaround_time'] - processes[current]['burst_time']
             time += 1
         else:
+            if not gantt_chart or gantt_chart[-1][0] != "Idle":
+                gantt_chart.append(("Idle", time, time + 1))
+            else:
+                gantt_chart[-1] = ("Idle", gantt_chart[-1][1], time + 1)
             time += 1
 
     return processes, gantt_chart
-
 
 def rr(processes, q=2):
     processes = sorted(processes, key=lambda x: x['arrival_time'])
@@ -139,19 +150,21 @@ def rr(processes, q=2):
     remaining_bt = {p['pid']: p['burst_time'] for p in processes}
     completion = {}
     visited = set()
-
     i = 0  # track process arrival
 
     while i < n or ready_queue:
-        # Add newly arrived processes to ready queue
         while i < n and processes[i]['arrival_time'] <= time:
             ready_queue.append(processes[i]['pid'])
             visited.add(processes[i]['pid'])
             i += 1
 
         if not ready_queue:
-            # No process is ready, advance time
-            time = processes[i]['arrival_time']
+            next_arrival = processes[i]['arrival_time']
+            if not gantt_chart or gantt_chart[-1][0] != "Idle":
+                gantt_chart.append(("Idle", time, next_arrival))
+            else:
+                gantt_chart[-1] = ("Idle", gantt_chart[-1][1], next_arrival)
+            time = next_arrival
             continue
 
         pid = ready_queue.popleft()
@@ -162,26 +175,22 @@ def rr(processes, q=2):
         gantt_chart.append((pid, start, finish))
         remaining_bt[pid] -= exec_time
 
-        # Check for new arrivals during execution
         while i < n and processes[i]['arrival_time'] <= time:
             if processes[i]['pid'] not in visited:
                 ready_queue.append(processes[i]['pid'])
                 visited.add(processes[i]['pid'])
             i += 1
 
-        # If not finished, requeue
         if remaining_bt[pid] > 0:
             ready_queue.append(pid)
         else:
             completion[pid] = finish
 
-    # Compute metrics
     for p in processes:
         pid = p['pid']
         p['completion_time'] = completion[pid]
         p['turnaround_time'] = p['completion_time'] - p['arrival_time']
         p['waiting_time'] = p['turnaround_time'] - p['burst_time']
-        # Optional: Get first time it was seen in Gantt chart
         p['start_time'] = next(start for p_id, start, _ in gantt_chart if p_id == pid)
 
     return processes, gantt_chart
@@ -222,6 +231,10 @@ def sjf_preemptive(processes):
                 process_info[shortest]['turnaround_time'] = process_info[shortest]['completion_time'] - arrival_dict[shortest]
                 process_info[shortest]['waiting_time'] = process_info[shortest]['turnaround_time'] - process_info[shortest]['burst_time']
         else:
+            if not gantt_chart or gantt_chart[-1][0] != "Idle":
+                gantt_chart.append(("Idle", time, time + 1))
+            else:
+                gantt_chart[-1] = ("Idle", gantt_chart[-1][1], time + 1)
             current_pid = None
         time += 1
 

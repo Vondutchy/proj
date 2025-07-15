@@ -106,11 +106,14 @@ def draw_gantt(gantt):
     canvas.delete("all")
     x = 10
     for pid, start, end in gantt:
-        canvas.create_rectangle(x, 20, x + (end - start) * 30, 70, fill="lightblue")
+        color = "gray" if pid == "Idle" else "lightblue"
+        canvas.create_rectangle(x, 20, x + (end - start) * 30, 70, fill=color)
         canvas.create_text(x + (end - start) * 15, 45, text=pid)
         canvas.create_text(x, 75, text=str(start), anchor=tk.NW)
         x += (end - start) * 30
-    canvas.create_text(x, 75, text=str(gantt[-1][2]), anchor=tk.NW)
+    if gantt:
+        canvas.create_text(x, 75, text=str(gantt[-1][2]), anchor=tk.NW)
+
 
 def on_algo_change(event=None):
     if algo_var.get() in ["NPP", "PP"]:
