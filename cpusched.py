@@ -7,7 +7,7 @@ from algorithms import fcfs, sjf, npp, pp, sjf_preemptive, rr
 # ---------------- GUI Functions ---------------- #
 def generate_table():
     try:
-        count = int(entry_count.get())
+        count = min(int(entry_count.get()), 8)
         if count <= 0:
             raise ValueError
     except ValueError:
