@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from collections import deque
 
 # ---------------- Scheduling Logic ---------------- #
 def fcfs(processes):
@@ -130,9 +131,66 @@ def pp(processes, higher_number_is_higher):
 
     return processes, gantt_chart
 
+
+def rr(processes, q=2):
+    processes = sorted(processes, key=lambda x: x['arrival_time'])
+    n = len(processes)
+    ready_queue = deque()
+    gantt_chart = []
+    time = 0
+    remaining_bt = {p['pid']: p['burst_time'] for p in processes}
+    completion = {}
+    visited = set()
+
+    i = 0  # track process arrival
+
+    while i < n or ready_queue:
+        # Add newly arrived processes to ready queue
+        while i < n and processes[i]['arrival_time'] <= time:
+            ready_queue.append(processes[i]['pid'])
+            visited.add(processes[i]['pid'])
+            i += 1
+
+        if not ready_queue:
+            # No process is ready, advance time
+            time = processes[i]['arrival_time']
+            continue
+
+        pid = ready_queue.popleft()
+        exec_time = min(q, remaining_bt[pid])
+        start = time
+        time += exec_time
+        finish = time
+        gantt_chart.append((pid, start, finish))
+        remaining_bt[pid] -= exec_time
+
+        # Check for new arrivals during execution
+        while i < n and processes[i]['arrival_time'] <= time:
+            if processes[i]['pid'] not in visited:
+                ready_queue.append(processes[i]['pid'])
+                visited.add(processes[i]['pid'])
+            i += 1
+
+        # If not finished, requeue
+        if remaining_bt[pid] > 0:
+            ready_queue.append(pid)
+        else:
+            completion[pid] = finish
+
+    # Compute metrics
+    for p in processes:
+        pid = p['pid']
+        p['completion_time'] = completion[pid]
+        p['turnaround_time'] = p['completion_time'] - p['arrival_time']
+        p['waiting_time'] = p['turnaround_time'] - p['burst_time']
+        # Optional: Get first time it was seen in Gantt chart
+        p['start_time'] = next(start for p_id, start, _ in gantt_chart if p_id == pid)
+
+    return processes, gantt_chart
+
 def sjf_preemptive(processes):
     n = len(processes)
-    processes = sorted(processes, key=lambda x: x['arrival_time'])  
+    processes = sorted(processes, key=lambda x: x['arrival_time'])
 
     remaining_bt = {p['pid']: p['burst_time'] for p in processes}
     arrival_dict = {p['pid']: p['arrival_time'] for p in processes}
@@ -153,7 +211,7 @@ def sjf_preemptive(processes):
             if current_pid != shortest:
                 if current_pid is not None and gantt_chart and gantt_chart[-1][0] == current_pid:
                     gantt_chart[-1] = (current_pid, gantt_chart[-1][1], time)
-                gantt_chart.append((shortest, time, None)) 
+                gantt_chart.append((shortest, time, None))
                 if shortest not in start_time:
                     start_time[shortest] = time
                 current_pid = shortest
@@ -166,7 +224,7 @@ def sjf_preemptive(processes):
                 process_info[shortest]['turnaround_time'] = process_info[shortest]['completion_time'] - arrival_dict[shortest]
                 process_info[shortest]['waiting_time'] = process_info[shortest]['turnaround_time'] - process_info[shortest]['burst_time']
         else:
-            current_pid = None 
+            current_pid = None
         time += 1
 
     for i in range(len(gantt_chart)):
@@ -246,6 +304,8 @@ def run_scheduler():
         result, gantt = pp(processes, high_is_high)
     elif algo == "SRTF":
         result, gantt = sjf_preemptive(processes)
+    elif algo == "RR":
+        result, gantt = rr(processes, int(q.get()))
     else:
         messagebox.showerror("Error", "Unknown algorithm selected.")
         return
@@ -293,6 +353,14 @@ def on_algo_change(event=None):
         label_prio_type.pack_forget()
         priority_mode_dropdown.pack_forget()
 
+    if algo_var.get() == 'RR':
+        q_label.pack(side=tk.LEFT)
+        q.pack(side=tk.LEFT, padx=5)
+    else:
+        q_label.pack_forget()
+        q.pack_forget()
+
+
     try:
         if int(entry_count.get()) > 0:
             generate_table()
@@ -317,7 +385,7 @@ tk.Button(frame_top, text="Generate Table", command=generate_table).pack(side=tk
 # Algorithm selection
 algo_var = tk.StringVar(value="FCFS")
 tk.Label(root, text="Select Algorithm:").pack()
-algo_dropdown = ttk.Combobox(root, textvariable=algo_var, values=["FCFS", "SJF", "NPP", "PP","SRTF"], state="readonly")
+algo_dropdown = ttk.Combobox(root, textvariable=algo_var, values=["FCFS", "SJF", "NPP", "PP", "SRTF", "RR"], state="readonly")
 algo_dropdown.pack()
 algo_dropdown.bind("<<ComboboxSelected>>", on_algo_change)
 
@@ -332,6 +400,13 @@ priority_mode_dropdown = ttk.Combobox(
 
 # Run button
 tk.Button(root, text="Run Scheduler", command=run_scheduler).pack(pady=10)
+
+frame_top = tk.Frame(root)
+frame_top.pack(pady=10)
+q_label = tk.Label(frame_top, text="q=")
+q_label.pack(side=tk.LEFT)
+q = tk.Entry(frame_top, width=5)
+q.pack(side=tk.LEFT, padx=5)
 
 # Editable input table
 frame_table_inputs = tk.Frame(root)
